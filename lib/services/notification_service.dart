@@ -43,4 +43,19 @@ class NotificationService {
         .orderBy('createdAt', descending: true)
         .snapshots();
   }
+
+  // NEW: Stream of unread notifications
+  static Stream<QuerySnapshot> getMyUnreadNotifications() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return const Stream.empty();
+    }
+
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: user.uid)
+        .where('isRead', isEqualTo: false)
+        .snapshots();
+  }
 }

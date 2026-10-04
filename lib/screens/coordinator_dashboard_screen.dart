@@ -20,8 +20,16 @@ class CoordinatorDashboardScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Coordinator Dashboard'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.campaign),
+            tooltip: 'Create Announcement',
+            onPressed: () {
+              _createAnnouncement(context);
+            },
+          ),
+        ],
       ),
-
       body: FutureBuilder<QuerySnapshot>(
         future: FirebaseFirestore.instance
             .collection('clubs')
@@ -330,6 +338,108 @@ class CoordinatorDashboardScreen extends StatelessWidget {
         },
       ),
     );
+  }
+  Future<void> _createAnnouncement(BuildContext context) async {
+    final titleController = TextEditingController();
+    final messageController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Create Announcement'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: messageController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Message',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final title = titleController.text.trim();
+                final message = messageController.text.trim();
+
+                if (title.isEmpty || message.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please fill in both fields'),
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+                  final user = FirebaseAuth.instance.currentUser;
+
+                  if (user == null) {
+                    throw Exception('User not logged in');
+                  }
+
+                  await FirebaseFirestore.instance
+                      .collection('announcements')
+                      .add({
+                    'title': title,
+                    'message': message,
+                    'createdBy': user.uid,
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+
+                  if (!context.mounted) return;
+
+                  Navigator.pop(dialogContext);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Announcement published successfully!',
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Failed to publish announcement: $e',
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Publish'),
+            ),
+          ],
+        );
+      },
+    );
+
+    titleController.dispose();
+    messageController.dispose();
   }
   Future<void> _updateApplicationStatus(
       BuildContext context,
